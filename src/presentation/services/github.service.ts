@@ -1,4 +1,4 @@
-import { GithubIssuePayload, GithubStarPayload } from "../../../interfaces";
+import { GithubIssuePayload, GithubStarPayload } from "../../interfaces";
 
 
 export class GithubService {
