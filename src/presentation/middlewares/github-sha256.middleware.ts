@@ -1,34 +1,55 @@
+import { NextFunction, Request, Response } from "express";
+import { envs } from "../../config";
 
 
 export class GithubSha256Middleware {
   private static encoder = new TextEncoder();
 
+  static async verifyGithubSignature( req: Request, res: Response, next: NextFunction) {
+    const xHubSignature = `${ req.headers['X-Hub-Signature-256'] }`;
+    const body = JSON.stringify(req.body);
+    const secret = envs.SECRET_TOKEN;
+
+    const isValid = await GithubSha256Middleware.verifySignature(secret, xHubSignature, body);
+    
+    if (isValid){
+      next();
+    } else {
+      res.status(401).json({ error: 'Invalid signature' })
+    }
+  }
+
   private static async verifySignature (secret: string, header: string, payload: string) {
-      let parts = header.split('=');
-      let sigHex = parts[1];
+      try {
+        let parts = header.split('=');
+        let sigHex = parts[1];
 
-      let algorithm = { name: "HMAC", hash: { name: 'SHA-256' } };
+        let algorithm = { name: "HMAC", hash: { name: 'SHA-256' } };
 
-      let keyBytes = this.encoder.encode(secret);
-      let extractable = false
-      let key = await crypto.subtle.importKey(
-        "raw",
-        keyBytes,
-        algorithm,
-        extractable,
-        ["sign", "verify"],
-      );
+        let keyBytes = this.encoder.encode(secret);
+        let extractable = false
+        let key = await crypto.subtle.importKey(
+          "raw",
+          keyBytes,
+          algorithm,
+          extractable,
+          ["sign", "verify"],
+        );
 
-      let sigBytes = this.hexToBytes(sigHex);
-      let dataBytes = this.encoder.encode(payload);
-      let equal = await crypto.subtle.verify(
-        algorithm.name,
-        key,
-        sigBytes,
-        dataBytes,
-      );
+        let sigBytes = this.hexToBytes(sigHex);
+        let dataBytes = this.encoder.encode(payload);
+        let equal = await crypto.subtle.verify(
+          algorithm.name,
+          key,
+          sigBytes,
+          dataBytes,
+        );
 
-    return equal;
+      return equal;
+    } catch(error) {
+      console.error(error);
+      return false;
+    }
   }
 
   private static hexToBytes(signature: string = ''){
